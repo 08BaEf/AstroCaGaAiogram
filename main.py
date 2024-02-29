@@ -6,12 +6,20 @@ with open("token.txt") as f:
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, FSInputFile
+
+from pathlib import Path, WindowsPath
+import random
+def getRandomImg(dir: str) -> WindowsPath:
+    dirPath = Path.cwd()/dir
+    fileinfo = []
+    for file in dirPath.rglob('*'):
+       fileinfo.append(file.name)
+    return dirPath.joinpath(random.choice(fileinfo))
 
 # Создаем объекты бота и диспетчера
 bot = Bot(token=token)
 dp = Dispatcher()
-
 
 # Этот хэндлер будет срабатывать на команду "/start"
 @dp.message(Command(commands=["start"]))
@@ -27,12 +35,43 @@ async def process_help_command(message: Message):
         'я пришлю тебе твое сообщение'
     )
 
+def ChkMes(message: Message) -> bool:
+    res = False
+    with open("BanWords.txt", encoding="utf-8") as f:
+        banWords = f.read().split()
+    if message.text:
+        userText = message.text.split()
+        for word in userText:
+            if word in banWords:
+                res = True
+    return res
+
+def banFilter(userText: str) -> str:
+    with open("BanWords.txt", encoding="utf-8") as f:
+        banWords = f.read().split()
+    filterMes = userText
+    for word in userText.split():
+        if word in banWords:
+            filterMes = filterMes.replace(word, "*" * len(word))
+    return filterMes
+
+@dp.message(ChkMes)
+async def process_ban(message: Message):
+    textReplace = (f'{message.from_user.first_name} просил передать: \n'
+                   f'<i>{banFilter(message.text)}</i>')
+    await message.delete()
+    photo = FSInputFile(getRandomImg('img'))
+    await bot.send_message(chat_id=message.from_user.id, text=textReplace, parse_mode='HTML')
+
+@dp.message(lambda message: message.text == "пельмень")
+async def send_about_pelimeni(message: Message):
+    await message.answer(text="много много мяса, мало мало мало теста")
 
 # Этот хэндлер будет срабатывать на любые ваши текстовые сообщения,
 # кроме команд "/start" и "/help"
-@dp.message()
-async def send_echo(message: Message):
-    await message.reply(text=message.text)
+# @dp.message()
+# async def send_echo(message: Message):
+#     await message.send_copy()
 
 
 if __name__ == '__main__':
