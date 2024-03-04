@@ -6,6 +6,7 @@ env = Env()
 env.read_env()
 token = env("BOT_TOKEN")
 
+
 from pathlib import Path, WindowsPath
 import random
 def getRandomImg(dir: str) -> WindowsPath:
