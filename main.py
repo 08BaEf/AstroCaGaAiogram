@@ -1,10 +1,9 @@
-
-
 import asyncio
 from aiogram import Bot, Dispatcher
 from handlers import other_handlers, user_handlers
 from config_data.config import load_config
 from keyboards.keyboards import set_main_menu
+
 async def main() -> None:
     config = load_config()
     # Создаем объекты бота и диспетчера
