@@ -1,17 +1,21 @@
-from aiogram.types import Message, ReplyKeyboardRemove
-from aiogram.filters import Command
+from aiogram.types import Message
+from aiogram.filters import Command, CommandStart
 from aiogram import Router, F
 from lexicon.lexicon import LEXICON_RU
 from keyboards.keyboards import yes_no_kb
 from services.card_deck import Game
+from sqlite3 import Connection
 
 
 router = Router()
 game = Game()
-
 # Этот хэндлер будет срабатывать на команду "/start"
 @router.message(Command(commands=["start"]))
-async def process_start_command(message: Message):
+async def process_start_command(message: Message, dbConnect: Connection):
+    cursor = dbConnect.cursor()
+    cursor.execute('INSERT OR IGNORE INTO Users (tgid, username, allgames, wingames) VALUES (?, ?, ?, ?)',
+                   (message.from_user.id, message.from_user.full_name, 0, 0))
+    dbConnect.commit()
     await message.answer(LEXICON_RU['/start'], reply_markup=yes_no_kb)
 
 
@@ -20,19 +24,32 @@ async def process_start_command(message: Message):
 async def process_help_command(message: Message):
     await message.answer(LEXICON_RU['/help'])
 
-@router.message(Command(commands=['card']))
-async def process_card_command(message: Message):
-    urlPhoto, value = await game.getCard()
-    await message.answer_photo(photo=urlPhoto)
 
 @router.message(Command(commands=['shuffle']))
-async def process_shuffle_command(message: Message):
-    await game.shuffle()
+async def process_shuffle(message: Message):
+    try:
+        await game.shuffle()
+    except:
+        await message.answer(text=LEXICON_RU['card_err'])
+    else:
+        await message.answer(text=LEXICON_RU['start_game'])
 
-@router.message(F.text == LEXICON_RU['yes_button'])
-async def shuffle(message: Message):
-    await message.answer(LEXICON_RU['start_game'], reply_markup=ReplyKeyboardRemove())
 
-@router.message(F.text == LEXICON_RU['no_button'])
-async def send_photo(message: Message):
-    await message.answer(LEXICON_RU['user_no'], reply_markup=ReplyKeyboardRemove())
+@router.message(Command(commands=['card']))
+async def process_card(message: Message):
+    try:
+        userUrlPhoto, userValue = await game.getCard()
+        botUrlPhoto, botValue = await game.getCard()
+    except AttributeError:
+        await message.answer(text=LEXICON_RU['no_card'])
+    else:
+        await message.answer(text=LEXICON_RU['user_card'])
+        await message.answer_photo(photo=userUrlPhoto)
+        await message.answer(text=LEXICON_RU['bot_card'])
+        await message.answer_photo(photo=botUrlPhoto)
+        if game.whoWin(userValue, botValue) == 'user':
+            await message.answer(text=LEXICON_RU['win'])
+        elif game.whoWin(userValue, botValue) == 'bot':
+            await message.answer(text=LEXICON_RU['lose'])
+        elif game.whoWin(userValue, botValue) == 'draw':
+            await message.answer(text=LEXICON_RU['draw'])
